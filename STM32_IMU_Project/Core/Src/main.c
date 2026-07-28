@@ -25,7 +25,7 @@
 #include "main.h"
 #include <stdio.h>
 #include <string.h>
-
+#include "sensors.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -49,12 +49,9 @@ I2C_HandleTypeDef hi2c1;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-char msg[150];
 
 
-uint8_t icm_ok=0;
-uint8_t qmc_ok=0;
-uint8_t bmp_ok=0;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -64,28 +61,12 @@ static void MX_I2C1_Init(void);
 static void MX_USART2_UART_Init(void);
 
 /* USER CODE BEGIN PFP */
-void I2C_Scan(void);
 
-
-void ICM42688_Init(void);
-void ICM42688_Read(void);
-
-
-void QMC5883P_Init(void);
-void QMC5883P_Read(void);
-
-
-void BMP388_Init(void);
-void BMP388_Read(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-#define ICM42688_ADDR (0x69<<1)
 
-#define QMC5883P_ADDR (0x2C<<1)
-
-#define BMP388_ADDR   (0x77<<1)
 /* USER CODE END 0 */
 
 /**
@@ -121,18 +102,12 @@ int main(void)
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
   HAL_Delay(100);
+  Sensors_Init(&hi2c1);
 
 
-  I2C_Scan();
 
 
-  ICM42688_Init();
 
-
-  QMC5883P_Init();
-
-
-  BMP388_Init();
 
 
 
@@ -155,6 +130,9 @@ int main(void)
 
   while(1)
   {
+	  Sensors_Read(&hi2c1);
+
+	  HAL_Delay(200);
 
 
 
@@ -162,16 +140,7 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  ICM42688_Read();
 
-
-	  QMC5883P_Read();
-
-
-	  BMP388_Read();
-
-
-	  HAL_Delay(200);
   }
   /* USER CODE END 3 */
 }
@@ -329,391 +298,6 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-
-//****************************ICM Read***********************
-void ICM42688_Read(void)
-{
-
-if(!icm_ok)
-return;
-
-
-
-uint8_t reg=0x1F;
-
-uint8_t data[12];
-
-
-
-HAL_I2C_Master_Transmit(
-&hi2c1,
-ICM42688_ADDR,
-&reg,
-1,
-1000);
-
-
-
-HAL_I2C_Master_Receive(
-&hi2c1,
-ICM42688_ADDR,
-data,
-12,
-1000);
-
-
-
-int16_t ax =
-(data[0]<<8)|data[1];
-
-
-int16_t ay =
-(data[2]<<8)|data[3];
-
-
-int16_t az =
-(data[4]<<8)|data[5];
-
-
-int16_t gx =
-(data[6]<<8)|data[7];
-
-
-int16_t gy =
-(data[8]<<8)|data[9];
-
-
-int16_t gz =
-(data[10]<<8)|data[11];
-
-
-
-sprintf(msg,
-"ICM ACC X:%d Y:%d Z:%d | GYRO X:%d Y:%d Z:%d\r\n",
-ax,ay,az,
-gx,gy,gz);
-
-
-
-HAL_UART_Transmit(
-&huart2,
-(uint8_t*)msg,
-strlen(msg),
-1000);
-
-
-}
-
-//****************************QMC Read***********************
-void QMC5883P_Read(void)
-{
-
-
-if(!qmc_ok)
-return;
-
-
-uint8_t data[6];
-
-
-HAL_I2C_Mem_Read(
-&hi2c1,
-QMC5883P_ADDR,
-0x01,
-I2C_MEMADD_SIZE_8BIT,
-data,
-6,
-1000);
-
-
-
-int16_t x=
-(int16_t)(data[0]|data[1]<<8);
-
-
-int16_t y=
-(int16_t)(data[2]|data[3]<<8);
-
-
-int16_t z=
-(int16_t)(data[4]|data[5]<<8);
-
-
-
-sprintf(msg,
-"MAG X:%d Y:%d Z:%d\r\n",
-x,y,z);
-
-
-
-HAL_UART_Transmit(
-&huart2,
-(uint8_t*)msg,
-strlen(msg),
-1000);
-
-
-}
-
-//****************************BMP388 Read***********************
-void BMP388_Read(void)
-{
-
-if(!bmp_ok)
-return;
-
-
-
-uint8_t data[6];
-
-
-HAL_I2C_Mem_Read(
-&hi2c1,
-BMP388_ADDR,
-0x04,
-I2C_MEMADD_SIZE_8BIT,
-data,
-6,
-1000);
-
-
-
-uint32_t p=
-(data[2]<<16)|
-(data[1]<<8)|
-data[0];
-
-
-
-uint32_t t=
-(data[5]<<16)|
-(data[4]<<8)|
-data[3];
-
-
-
-sprintf(msg,
-"BMP388 P:%lu T:%lu\r\n",
-p,t);
-
-
-
-HAL_UART_Transmit(
-&huart2,
-(uint8_t*)msg,
-strlen(msg),
-1000);
-
-
-}
-
-//****************************I2C Scan***********************************
-void I2C_Scan(void)
-{
-
-uint8_t addr;
-
-
-sprintf(msg,"\r\nI2C SCAN\r\n");
-
-
-HAL_UART_Transmit(
-&huart2,
-(uint8_t*)msg,
-strlen(msg),
-1000);
-
-
-
-for(addr=1; addr<127; addr++)
-{
-
-if(HAL_I2C_IsDeviceReady(
-&hi2c1,
-addr<<1,
-3,
-100)==HAL_OK)
-{
-
-sprintf(msg,"FOUND 0x%02X\r\n",addr);
-
-
-HAL_UART_Transmit(
-&huart2,
-(uint8_t*)msg,
-strlen(msg),
-1000);
-
-}
-
-}
-
-HAL_Delay(100);
-
-}
-
-
-
-
-
-//================ ICM-42688-P INIT =================
-
-void ICM42688_Init(void)
-{
-
-
-uint8_t init[2];
-
-
-init[0]=0x4E;
-init[1]=0x0F;
-
-
-
-if(HAL_I2C_Master_Transmit(
-&hi2c1,
-ICM42688_ADDR,
-init,
-2,
-1000)==HAL_OK)
-{
-
-
-icm_ok=1;
-
-
-sprintf(msg,"ICM42688 OK\r\n");
-
-
-HAL_UART_Transmit(
-&huart2,
-(uint8_t*)msg,
-strlen(msg),
-1000);
-
-
-}
-
-
-}
-
-
-//================ QMC5883P INIT =================
-void QMC5883P_Init(void)
-{
-
-uint8_t data;
-
-
-if(HAL_I2C_IsDeviceReady(
-&hi2c1,
-QMC5883P_ADDR,
-3,
-100)==HAL_OK)
-{
-
-
-qmc_ok=1;
-
-
-data=0xCF;
-
-HAL_I2C_Mem_Write(
-&hi2c1,
-QMC5883P_ADDR,
-0x0A,
-I2C_MEMADD_SIZE_8BIT,
-&data,
-1,
-1000);
-
-
-
-data=0x08;
-
-
-HAL_I2C_Mem_Write(
-&hi2c1,
-QMC5883P_ADDR,
-0x0B,
-I2C_MEMADD_SIZE_8BIT,
-&data,
-1,
-1000);
-
-
-
-sprintf(msg,"QMC5883P OK\r\n");
-
-
-HAL_UART_Transmit(
-&huart2,
-(uint8_t*)msg,
-strlen(msg),
-1000);
-
-
-}
-
-}
-
-
-
-//================ BMP388 INIT =================
-void BMP388_Init(void)
-{
-
-uint8_t id;
-
-
-HAL_I2C_Mem_Read(
-&hi2c1,
-BMP388_ADDR,
-0x00,
-I2C_MEMADD_SIZE_8BIT,
-&id,
-1,
-1000);
-
-
-
-if(id==0x50)
-{
-
-bmp_ok=1;
-
-
-sprintf(msg,"BMP388 OK ID=0x50\r\n");
-
-
-HAL_UART_Transmit(
-&huart2,
-(uint8_t*)msg,
-strlen(msg),
-1000);
-
-
-
-uint8_t cfg[2];
-
-
-cfg[0]=0x1B;
-cfg[1]=0x33;
-
-
-HAL_I2C_Master_Transmit(
-&hi2c1,
-BMP388_ADDR,
-cfg,
-2,
-1000);
-
-
-
-}
-
-}
-
 
 
 

@@ -1,0 +1,24 @@
+# =========================
+# ROS2
+# =========================
+imu_ws/build/
+imu_ws/install/
+imu_ws/log/
+
+# Python
+**/__pycache__/
+*.pyc
+
+# =========================
+# STM32CubeIDE
+# =========================
+**/Debug/
+**/Release/
+
+# Binary files
+*.elf
+*.bin
+*.hex
+
+# STM32 temporary files
+*.launch
